@@ -1,6 +1,6 @@
 # Korrent Android
 
-This is an Android application ported from the Python desktop project '[Korrent1337x](https://github.com/your-original-python-repo-link-here)'. It allows searching for torrents on the 1337x website directly from your Android device.
+This is an Android application ported from the Python desktop project '[Korrent1337x](https://github.com/kozydot/Korrent1337x)'. It allows searching for torrents on the 1337x website directly from your Android device.
 
 ## Features
 
