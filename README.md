@@ -39,6 +39,9 @@ To generate a debug APK for testing:
 1.  Go to **Build** -> **Build Bundle(s) / APK(s)** -> **Build APK(s)**.
 2.  The APK will be located in `KorrentAndroid/app/build/outputs/apk/debug/app-debug.apk`.
 
+## Acknowledgements
+
+The core logic for interacting with 1337x was heavily inspired by the excellent [py1337x](https://github.com/hemantapkh/1337x) Python library by Hemanta Pokharel.
 ## Notes
 
 *   This application interacts directly with the 1337x website. Website structure changes may break functionality.
