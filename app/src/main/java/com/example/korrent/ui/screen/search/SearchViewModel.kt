@@ -42,6 +42,10 @@ class SearchViewModel(
     private val cloudflareBypass: CloudflareWebViewBypass = CloudflareWebViewBypass(KorrentApplication.appContext) // inject bypass helper
 ) : ViewModel() {
 
+    companion object {
+        private const val TAG = "SearchViewModel"
+    }
+
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
@@ -129,8 +133,10 @@ class SearchViewModel(
                  if (error.message?.contains("403") == true || error.message?.contains("timeout", ignoreCase = true) == true || error.message?.contains("cloudflare", ignoreCase = true) == true) {
                      // start bypass process
                      viewModelScope.launch {
-                         if (!cloudflareBypass.prepareClearance(repository.buildSearchUrl(currentState.searchQuery, page, currentState.category, currentState.sortBy, currentState.order))) {
-                             // prepareclearance returned false, challenge needed
+                         // Use the actual repository method to get the URL
+                         val searchUrl = repository.buildSearchUrl(currentState.searchQuery, page, currentState.category, currentState.sortBy, currentState.order)
+                         if (!cloudflareBypass.prepareClearance(searchUrl)) {
+                             // prepareClearance returned false, challenge needed
                              // stateflow will update ui via the init collector
                              _uiState.update { it.copy(isLoadingSearch = true) } // keep loading spinner
                          } else {
@@ -161,8 +167,8 @@ class SearchViewModel(
 
         viewModelScope.launch {
             // use torrentid mainly, fallback to link if needed (id is better)
-            // need to build the info url here to pass to bypass if needed
-            val infoUrl = repository.buildInfoUrl(torrentId = torrentItem.torrentId, link = null) // assuming repo exposes url building
+            // Use the actual repository method to get the URL
+            val infoUrl = repository.buildInfoUrl(torrentId = torrentItem.torrentId, link = null)
             val result = repository.getTorrentInfo(torrentId = torrentItem.torrentId, link = null)
 
             result.onSuccess { info ->
@@ -225,17 +231,5 @@ class SearchViewModel(
         return rememberWebViewState(url = url)
     }
 
-    // need to expose url building from repo or duplicate logic here if bypass needs it
-    // temp workaround assuming repo exposes it
-    // suppress unused param warnings for placeholder funcs
-    @Suppress("UNUSED_PARAMETER")
-    private fun TorrentRepository.buildSearchUrl(query: String, page: Int, category: String?, sortBy: String?, order: String): String {
-        // todo: implement or call actual url building logic
-        return "https://1337x.to/search/$query/$page/" // placeholder
-    }
-    @Suppress("UNUSED_PARAMETER")
-     private fun TorrentRepository.buildInfoUrl(torrentId: String?, link: String?): String {
-        // todo: implement or call actual url building logic
-        return "https://1337x.to/torrent/$torrentId/placeholder/" // placeholder
-    }
+    // Removed placeholder extension functions as repository now provides these.
 }

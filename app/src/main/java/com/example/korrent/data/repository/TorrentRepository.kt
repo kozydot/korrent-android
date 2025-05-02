@@ -23,5 +23,20 @@ interface TorrentRepository {
         link: String?
     ): Result<TorrentInfo>
 
+    // --- URL Building ---
+    // Expose URL building logic needed by ViewModel for bypass
+    fun buildSearchUrl(
+        query: String,
+        page: Int = 1,
+        category: String? = null,
+        sortBy: String? = null,
+        order: String = TorrentOrder.DESC
+    ): String
+
+    fun buildInfoUrl(
+        torrentId: String?,
+        link: String?
+    ): String
+
     // TODO: Add methods for trending, top, popular, browse if needed
 }

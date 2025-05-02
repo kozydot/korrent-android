@@ -13,6 +13,36 @@ import java.io.IOException // for network/parsing errors
 
 class TorrentService {
 
+    companion object {
+        private const val TAG = "TorrentService"
+
+        // Jsoup Selectors for Search Results Page
+        private const val SELECTOR_SEARCH_TABLE_ROWS = "table.table-list tbody tr"
+        private const val SELECTOR_SEARCH_NAME_LINK = "td.name a:nth-child(2)"
+        private const val SELECTOR_SEARCH_SEEDERS = "td.seeds"
+        private const val SELECTOR_SEARCH_LEECHERS = "td.leeches"
+        private const val SELECTOR_SEARCH_SIZE = "td.size"
+        private const val SELECTOR_SEARCH_TIME = "td.time"
+        private const val SELECTOR_SEARCH_UPLOADER_LINK = "td.coll-5 a"
+        private const val SELECTOR_SEARCH_PAGINATION_LAST = ".pagination li.last a"
+
+        // Jsoup Selectors for Torrent Info Page
+        private const val SELECTOR_INFO_HEADING = "div.box-info-heading h1"
+        private const val SELECTOR_INFO_DETAIL_LIST = "div.box-info-detail ul"
+        private const val SELECTOR_INFO_CATEGORY = "li:has(strong:contains(category)) > span"
+        private const val SELECTOR_INFO_TYPE = "li:has(strong:contains(type)) > span"
+        private const val SELECTOR_INFO_LANGUAGE = "li:has(strong:contains(language)) > span"
+        private const val SELECTOR_INFO_SIZE = "li:has(strong:contains(total size)) > span"
+        private const val SELECTOR_INFO_UPLOADER = "li:has(strong:contains(uploaded by)) > span" // Contains link or text
+        private const val SELECTOR_INFO_DOWNLOADS = "li:has(strong:contains(downloads)) > span"
+        private const val SELECTOR_INFO_LAST_CHECKED = "li:has(strong:contains(last checked)) > span"
+        private const val SELECTOR_INFO_DATE_UPLOADED = "li:has(strong:contains(date uploaded)) > span"
+        private const val SELECTOR_INFO_SEEDERS = "li span.seeds"
+        private const val SELECTOR_INFO_LEECHERS = "li span.leeches"
+        private const val SELECTOR_INFO_MAGNET_LINK = "div.torrent-detail-page a[href^=magnet:]"
+        private const val SELECTOR_INFO_DESCRIPTION = "div#description"
+    }
+
     private val client = NetworkModule.client
     private val baseUrl = NetworkModule.BASE_URL
 
@@ -22,7 +52,7 @@ class TorrentService {
         return query.replace(" ", "+") // basic space replacement
     }
 
-    private fun buildSearchUrl(
+    internal fun buildSearchUrl( // Make internal
         query: String,
         page: Int = 1,
         category: String? = null,
@@ -46,7 +76,7 @@ class TorrentService {
         return baseUrl + path
     }
 
-     private fun buildInfoUrl(torrentId: String?, link: String?): String {
+     internal fun buildInfoUrl(torrentId: String?, link: String?): String { // Make internal
         if (torrentId != null) {
             // construct url from torrentid (assuming standard format)
             // need to find the exact format from py1337x or website structure
@@ -71,17 +101,16 @@ class TorrentService {
         var pageCount = 1 // default if pagination not found
 
         try {
-            // find the table containing results (selector might need adjustment)
-            val tableRows = document.select("table.table-list tbody tr")
-            // itemCount = tableRows.size // Removed assignment to unused variable
+            // find the table containing results
+            val tableRows = document.select(SELECTOR_SEARCH_TABLE_ROWS)
 
             for (row in tableRows) {
-                val nameElement = row.selectFirst("td.name a:nth-child(2)") // link containing name and href
-                val seedersElement = row.selectFirst("td.seeds")
-                val leechersElement = row.selectFirst("td.leeches")
-                val sizeElement = row.selectFirst("td.size")
-                val timeElement = row.selectFirst("td.time")
-                val uploaderElement = row.selectFirst("td.coll-5 a") // uploader link
+                val nameElement = row.selectFirst(SELECTOR_SEARCH_NAME_LINK)
+                val seedersElement = row.selectFirst(SELECTOR_SEARCH_SEEDERS)
+                val leechersElement = row.selectFirst(SELECTOR_SEARCH_LEECHERS)
+                val sizeElement = row.selectFirst(SELECTOR_SEARCH_SIZE)
+                val timeElement = row.selectFirst(SELECTOR_SEARCH_TIME)
+                val uploaderElement = row.selectFirst(SELECTOR_SEARCH_UPLOADER_LINK)
 
                 val name = nameElement?.text() ?: "n/a"
                 val url = nameElement?.attr("href") ?: ""
@@ -111,12 +140,12 @@ class TorrentService {
                 }
             }
 
-            // parse pagination (selector might need adjustment)
-            val lastPageElement = document.select(".pagination li.last a").first()
+            // parse pagination
+            val lastPageElement = document.select(SELECTOR_SEARCH_PAGINATION_LAST).first()
             pageCount = lastPageElement?.attr("href")?.split("/")?.lastOrNull()?.toIntOrNull() ?: currentPage
 
         } catch (e: Exception) {
-            Log.e("TorrentService", "error parsing torrent list: ${e.message}", e)
+            Log.e(TAG, "Error parsing torrent list: ${e.message}", e)
             // return empty/partial result on error
         }
 
@@ -132,34 +161,29 @@ class TorrentService {
         val document: Document = Jsoup.parse(html)
         // selectors need careful inspection of the 1337x torrent details page html structure
         try {
-            // more robust selectors targeting the structure commonly seen
-            val detailList = document.selectFirst("div.box-info-detail ul")
+            val detailList = document.selectFirst(SELECTOR_INFO_DETAIL_LIST)
 
-            val name = document.selectFirst("div.box-info-heading h1")?.text()
-            val category = detailList?.select("li:has(strong:contains(category)) > span")?.first()?.text()
-            val type = detailList?.select("li:has(strong:contains(type)) > span")?.first()?.text()
-            val language = detailList?.select("li:has(strong:contains(language)) > span")?.first()?.text()
-            val size = detailList?.select("li:has(strong:contains(total size)) > span")?.first()?.text()
-            // uploader might be inside an <a> tag within the span
-            val uploaderElement = detailList?.select("li:has(strong:contains(uploaded by)) > span")?.first()
+            val name = document.selectFirst(SELECTOR_INFO_HEADING)?.text()
+            val category = detailList?.select(SELECTOR_INFO_CATEGORY)?.first()?.text()
+            val type = detailList?.select(SELECTOR_INFO_TYPE)?.first()?.text()
+            val language = detailList?.select(SELECTOR_INFO_LANGUAGE)?.first()?.text()
+            val size = detailList?.select(SELECTOR_INFO_SIZE)?.first()?.text()
+            val uploaderElement = detailList?.select(SELECTOR_INFO_UPLOADER)?.first()
             val uploader = uploaderElement?.selectFirst("a")?.text() ?: uploaderElement?.text() // get link text or span text
-            val downloads = detailList?.select("li:has(strong:contains(downloads)) > span")?.first()?.text()
-            val lastChecked = detailList?.select("li:has(strong:contains(last checked)) > span")?.first()?.text()
-            val dateUploaded = detailList?.select("li:has(strong:contains(date uploaded)) > span")?.first()?.text()
-            val seeders = detailList?.select("li span.seeds")?.first()?.text() // more specific within the list
-            val leechers = detailList?.select("li span.leeches")?.first()?.text() // more specific within the list
+            val downloads = detailList?.select(SELECTOR_INFO_DOWNLOADS)?.first()?.text()
+            val lastChecked = detailList?.select(SELECTOR_INFO_LAST_CHECKED)?.first()?.text()
+            val dateUploaded = detailList?.select(SELECTOR_INFO_DATE_UPLOADED)?.first()?.text()
+            val seeders = detailList?.select(SELECTOR_INFO_SEEDERS)?.first()?.text()
+            val leechers = detailList?.select(SELECTOR_INFO_LEECHERS)?.first()?.text()
 
-            // corrected magnet link selector: find the first magnet link within the main torrent detail box
-            val magnetLink = document.selectFirst("div.torrent-detail-page a[href^=magnet:]")?.attr("href")
-            // extract infohash using string manipulation to avoid uri.parse issues
+            val magnetLink = document.selectFirst(SELECTOR_INFO_MAGNET_LINK)?.attr("href")
             val infoHash = magnetLink?.substringAfter("urn:btih:", "")?.substringBefore('&')
-            // corrected description selector
-            val description = document.selectFirst("div#description")?.html()
+            val description = document.selectFirst(SELECTOR_INFO_DESCRIPTION)?.html()
 
              // basic validation: check if essential fields were parsed
              if (name.isNullOrBlank() || magnetLink.isNullOrBlank()) {
-                 Log.e("TorrentService", "failed to parse essential torrent details (name or magnet link). name: $name, magnet: $magnetLink")
-                 throw IOException("failed to parse essential torrent details from html.")
+                 Log.e(TAG, "Failed to parse essential torrent details (name or magnet link). Name: $name, Magnet: $magnetLink")
+                 throw IOException("Failed to parse essential torrent details from HTML.")
              }
 
             return TorrentInfo(
@@ -180,8 +204,8 @@ class TorrentService {
                 // add other fields like genre, thumbnail, images if selectors are found
             )
         } catch (e: Exception) {
-             Log.e("TorrentService", "error parsing torrent info: ${e.message}", e)
-             throw IOException("failed to parse torrent details", e) // re-throw as ioexception
+             Log.e(TAG, "Error parsing torrent info: ${e.message}", e)
+             throw IOException("Failed to parse torrent details", e) // re-throw as ioexception
         }
     }
 
@@ -197,20 +221,20 @@ class TorrentService {
     ): Result<TorrentResult> { // use kotlin result for error handling
         return try {
             val url = buildSearchUrl(query, page, category, sortBy, order)
-            Log.d("TorrentService", "searching url: $url")
+            Log.d(TAG, "Searching URL: $url")
             val response = client.get(url)
             if (response.status == HttpStatusCode.OK) {
                 val html: String = response.body()
-                // assume cookies were applied by interceptor if needed.
-                // if this still fails later, the viewmodel needs to trigger the interactive bypass.
+                // Assume cookies were applied by interceptor if needed.
+                // If this still fails later, the viewmodel needs to trigger the interactive bypass.
                 Result.success(parseTorrentList(html, page))
             } else {
-                 // propagate specific http errors
-                Log.w("TorrentService", "search request failed for $url with status: ${response.status}")
-                Result.failure(IOException("search request failed: ${response.status.value} ${response.status.description}"))
+                 // Propagate specific HTTP errors
+                Log.w(TAG, "Search request failed for $url with status: ${response.status}")
+                Result.failure(IOException("Search request failed: ${response.status.value} ${response.status.description}"))
             }
         } catch (e: Exception) {
-            Log.e("TorrentService", "search exception for query '$query': ${e.message}", e)
+            Log.e(TAG, "Search exception for query '$query': ${e.message}", e)
             Result.failure(e)
         }
     }
@@ -218,19 +242,18 @@ class TorrentService {
      suspend fun getInfo(torrentId: String?, link: String?): Result<TorrentInfo> {
          return try {
              val url = buildInfoUrl(torrentId, link)
-             Log.d("TorrentService", "fetching info url: $url")
+             Log.d(TAG, "Fetching info URL: $url")
              val response = client.get(url)
              if (response.status == HttpStatusCode.OK) {
                  val html: String = response.body()
-                 // removed raw html logging
-                 // assume cookies were applied by interceptor if needed.
+                 // Assume cookies were applied by interceptor if needed.
                  Result.success(parseTorrentInfo(html))
              } else {
-                 Log.w("TorrentService", "info request failed for $url with status: ${response.status}")
-                 Result.failure(IOException("info request failed: ${response.status.value} ${response.status.description}"))
+                 Log.w(TAG, "Info request failed for $url with status: ${response.status}")
+                 Result.failure(IOException("Info request failed: ${response.status.value} ${response.status.description}"))
              }
          } catch (e: Exception) {
-             Log.e("TorrentService", "get info exception: ${e.message}", e)
+             Log.e(TAG, "Get info exception: ${e.message}", e)
              Result.failure(e)
          }
      }

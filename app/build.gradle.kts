@@ -23,7 +23,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true // Enable code shrinking and obfuscation for release
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -71,7 +71,7 @@ implementation("com.google.android.material:material:1.12.0") // Add standard Ma
     // Ktor (Networking)
     val ktorVersion = "2.3.11"
     implementation("io.ktor:ktor-client-core:$ktorVersion")
-    implementation("io.ktor:ktor-client-cio:$ktorVersion") // Or ktor-client-okhttp
+    // implementation("io.ktor:ktor-client-cio:$ktorVersion") // Use OkHttp engine instead for Android
     implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
 

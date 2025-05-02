@@ -16,11 +16,15 @@ import kotlinx.coroutines.runBlocking // needed for calling suspend function fro
 
 object NetworkModule {
 
+    private const val TAG = "NetworkModule" // Define Log Tag constant
+
     // base url for 1337x (can be made configurable later)
     const val BASE_URL = "https://1337x.to" // use a known working domain
 
-    // initialize the custom bypass utility using application context
-    private val cloudflareBypass = CloudflareWebViewBypass(KorrentApplication.appContext)
+    // Lazily initialize the custom bypass utility using application context
+    private val cloudflareBypass: CloudflareWebViewBypass by lazy {
+        CloudflareWebViewBypass(KorrentApplication.appContext)
+    }
 
     // configure okhttpclient with an interceptor that uses the bypass utility
     private val okHttpClient = OkHttpClient.Builder()
@@ -37,13 +41,13 @@ object NetworkModule {
 
             if (userAgent != null && cookies != null) {
                 // apply cached clearance if available
-                Log.d("networkmodule", "interceptor: applying cached clearance.") // lowercase tag
+                Log.d(TAG, "Interceptor: Applying cached clearance.")
                 requestBuilder.header("User-Agent", userAgent)
                 requestBuilder.header("Cookie", cookies)
             } else {
                 // proceed with a default user-agent if no clearance is cached
                 // the actual bypass attempt is now triggered elsewhere (e.g., viewmodel)
-                Log.d("networkmodule", "interceptor: no cached clearance found, using default ua.") // lowercase tag
+                Log.d(TAG, "Interceptor: No cached clearance found, using default UA.")
                 requestBuilder.header("User-Agent", "mozilla/5.0 (windows nt 10.0; win64; x64) applewebkit/537.36 (khtml, like gecko) chrome/91.0.4472.124 safari/537.36")
             }
 
