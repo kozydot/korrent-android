@@ -12,6 +12,9 @@ This is an Android application ported from the Python desktop project '[Korrent1
 *   Initiate torrent downloads by opening magnet links in a compatible torrent client app installed on the device (e.g., BitTorrent, uTorrent, Flud).
 *   Handles Cloudflare challenges using an interactive WebView dialog.
 
+## Screenshot
+
+![App Screenshot](image/screenshot.png)
 ## Tech Stack
 
 *   **Language:** Kotlin
