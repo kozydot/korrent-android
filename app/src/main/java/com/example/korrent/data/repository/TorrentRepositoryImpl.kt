@@ -5,11 +5,9 @@ import com.example.korrent.data.model.TorrentOrder
 import com.example.korrent.data.model.TorrentResult
 import com.example.korrent.data.remote.TorrentService
 
-/**
- * implementation of torrentrepository that gets data from the remote torrentservice.
- */
+// implementation of torrentrepository using remote torrentservice
 class TorrentRepositoryImpl(
-    private val torrentService: TorrentService // inject the service
+    private val torrentService: TorrentService // injected service
 ) : TorrentRepository {
 
     override suspend fun searchTorrents(
@@ -19,7 +17,7 @@ class TorrentRepositoryImpl(
         sortBy: String?,
         order: String
     ): Result<TorrentResult> {
-        // pass the call to the torrentservice
+        // pass call to service
         return torrentService.search(query, page, category, sortBy, order)
     }
 
@@ -27,9 +25,9 @@ class TorrentRepositoryImpl(
         torrentId: String?,
         link: String?
     ): Result<TorrentInfo> {
-        // pass the call to the torrentservice
+        // pass call to service
         return torrentService.getInfo(torrentId, link)
     }
 
-    // todo: implement other repo methods by calling corresponding service methods
+    // todo: implement other repo methods via service calls
 }

@@ -7,7 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import android.content.ActivityNotFoundException
-import android.util.Log // log stuff for debugging
+import android.util.Log // for logging
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,11 +32,39 @@ import com.google.accompanist.web.WebView
 import com.google.accompanist.web.WebViewState
 import com.google.accompanist.web.rememberWebViewState
 
-// tag for logging
+// log tag
 private const val TAG = "SearchScreen"
 
+// dropdown options
+private val categoryOptions = mapOf(
+    "Any" to null,
+    "Movies" to TorrentCategory.MOVIES,
+    "TV" to TorrentCategory.TV,
+    "Games" to TorrentCategory.GAMES,
+    "Music" to TorrentCategory.MUSIC,
+    "Apps" to TorrentCategory.APPS,
+    "Anime" to TorrentCategory.ANIME,
+    "Docs" to TorrentCategory.DOCUMENTARIES,
+    "Other" to TorrentCategory.OTHER,
+    "XXX" to TorrentCategory.XXX
+)
+
+private val sortOptions = mapOf(
+    "Default" to null,
+    "Time" to TorrentSort.TIME,
+    "Size" to TorrentSort.SIZE,
+    "Seeders" to TorrentSort.SEEDERS,
+    "Leechers" to TorrentSort.LEECHERS
+)
+
+private val orderOptions = mapOf(
+    "Desc" to TorrentOrder.DESC,
+    "Asc" to TorrentOrder.ASC
+)
+
+
 @OptIn(ExperimentalComposeUiApi::class)
-@Suppress("DEPRECATION") // Suppress Accompanist Webview warnings here
+@Suppress("DEPRECATION") // suppress accompanist webview warnings
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel = viewModel()
@@ -46,19 +74,19 @@ fun SearchScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // webview stuff
+    // webview state
     val webViewState = uiState.webViewUrl?.let { url ->
         viewModel.rememberWebViewStateForBypass(url = url)
     }
 
-    // show snackbar messages
+    // show snackbars
     LaunchedEffect(uiState.snackbarMessage) {
         uiState.snackbarMessage?.let { message ->
             snackbarHostState.showSnackbar(message)
             viewModel.clearSnackbarMessage()
         }
     }
-    // show error messages
+    // show errors
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let { message ->
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
@@ -66,12 +94,12 @@ fun SearchScreen(
         }
     }
 
-    // main ui layout
+    // main layout
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
 
-        // cloudflare challenge popup
+        // cloudflare challenge dialog
         if (uiState.bypassState is BypassState.ChallengeRequired && webViewState != null) {
             CloudflareChallengeDialog(
                 webViewUrl = uiState.webViewUrl ?: "about:blank",
@@ -80,14 +108,14 @@ fun SearchScreen(
             )
         }
 
-        // main screen content
+        // main content
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues) // scaffold padding first
-                .padding(horizontal = 16.dp, vertical = 8.dp) // then content padding
+                .padding(paddingValues) // scaffold padding
+                .padding(horizontal = 16.dp, vertical = 8.dp) // content padding
         ) {
-            // top search bar
+            // search bar
             Box(modifier = Modifier.padding(bottom = 8.dp)) {
                 SearchInputSection(
                     query = uiState.searchQuery,
@@ -99,7 +127,7 @@ fun SearchScreen(
                 )
             }
 
-            // filter/sort options row
+            // filter/sort row
             Box(modifier = Modifier.padding(bottom = 16.dp)) {
                 OptionsRow(
                     selectedCategory = uiState.category,
@@ -111,9 +139,9 @@ fun SearchScreen(
                 )
             }
 
-            // middle section (results list and details view)
+            // results list & details view
             Row(modifier = Modifier.weight(1f).padding(bottom = 16.dp)) {
-                // results list on the left
+                // results list (left)
                 Surface(modifier = Modifier.weight(1f), shadowElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
                     SearchResultsList(
                         results = uiState.searchResults,
@@ -131,7 +159,7 @@ fun SearchScreen(
 
                 Spacer(modifier = Modifier.width(16.dp))
 
-                // details view on the right
+                // details view (right)
                 Surface(modifier = Modifier.weight(2f), shadowElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
                     TorrentDetailsView(
                         torrentInfo = uiState.selectedTorrentInfo,
@@ -140,8 +168,8 @@ fun SearchScreen(
                 }
             }
 
-            // bottom action buttons
-            Box(modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)) { // center the buttons
+            // action buttons
+            Box(modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)) { // center buttons
                 ActionButtons(
                     torrentInfo = uiState.selectedTorrentInfo,
                     onCopyMagnet = { magnet ->
@@ -157,7 +185,7 @@ fun SearchScreen(
     }
 }
 
-// --- helper composables ---
+// helper composables
 
 @Composable
 fun SearchInputSection(
@@ -166,7 +194,7 @@ fun SearchInputSection(
     onSearchClick: () -> Unit
 ) {
     var textFieldValue by remember { mutableStateOf(TextFieldValue(query)) }
-    LaunchedEffect(query) { // update text field if query changes from outside
+    LaunchedEffect(query) { // update text field if query changes externally
         if (textFieldValue.text != query) {
             textFieldValue = textFieldValue.copy(text = query)
         }
@@ -190,7 +218,7 @@ fun SearchInputSection(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class) // need this for flowrow
+@OptIn(ExperimentalLayoutApi::class) // for flowrow
 @Composable
 fun OptionsRow(
     selectedCategory: String?,
@@ -198,57 +226,34 @@ fun OptionsRow(
     selectedOrder: String,
     onCategoryChange: (String?) -> Unit,
     onSortByChange: (String?) -> Unit,
-    onOrderChange: (String) -> Unit // fixed lambda
+    onOrderChange: (String) -> Unit
 ) {
     FlowRow(
         verticalArrangement = Arrangement.Center,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        // category dropdown
         DropdownSelector(
             label = "Category",
-            options = mapOf(
-                "Any" to null,
-                "Movies" to TorrentCategory.MOVIES,
-                "TV" to TorrentCategory.TV,
-                "Games" to TorrentCategory.GAMES,
-                "Music" to TorrentCategory.MUSIC,
-                "Apps" to TorrentCategory.APPS,
-                "Anime" to TorrentCategory.ANIME,
-                "Docs" to TorrentCategory.DOCUMENTARIES,
-                "Other" to TorrentCategory.OTHER,
-                "XXX" to TorrentCategory.XXX
-            ),
+            options = categoryOptions,
             selectedValue = selectedCategory,
-            onValueSelected = onCategoryChange, // use lambda directly
+            onValueSelected = onCategoryChange,
             modifier = Modifier.weight(1f)
         )
 
-        // sort by dropdown
         DropdownSelector(
             label = "Sort By",
-            options = mapOf(
-                "Default" to null,
-                "Time" to TorrentSort.TIME,
-                "Size" to TorrentSort.SIZE,
-                "Seeders" to TorrentSort.SEEDERS,
-                "Leechers" to TorrentSort.LEECHERS
-            ),
+            options = sortOptions,
             selectedValue = selectedSortBy,
-            onValueSelected = onSortByChange, // use lambda directly
+            onValueSelected = onSortByChange,
             modifier = Modifier.weight(1f)
         )
 
-        // order dropdown
         DropdownSelector(
             label = "Order",
-            options = mapOf(
-                "Desc" to TorrentOrder.DESC,
-                "Asc" to TorrentOrder.ASC
-            ),
+            options = orderOptions,
             selectedValue = selectedOrder,
-            onValueSelected = { value -> onOrderChange(value!!) }, // gotta be non-null here
+            onValueSelected = { value -> onOrderChange(value!!) }, // must be non-null
             modifier = Modifier.weight(1f, fill = false).widthIn(min = 120.dp)
         )
     }
@@ -277,7 +282,7 @@ fun DropdownSelector(
             readOnly = true,
             label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.menuAnchor() // needed for the dropdown box
+            modifier = Modifier.menuAnchor() // for dropdown box
         )
         ExposedDropdownMenu(
             expanded = expanded,
@@ -309,7 +314,7 @@ fun SearchResultsList(
     val listState = rememberLazyListState()
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (isLoading && results.isEmpty()) { // show loading only if list is empty at first
+        if (isLoading && results.isEmpty()) { // show loading only if list empty initially
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         } else if (results.isEmpty()) {
             Text("No results found.", modifier = Modifier.align(Alignment.Center))
@@ -317,17 +322,17 @@ fun SearchResultsList(
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 items(results, key = { it.torrentId }) { item ->
                     TorrentResultItem(item = item, onClick = { onItemSelected(item) })
-                    HorizontalDivider() // Use HorizontalDivider instead
+                    HorizontalDivider()
                 }
 
-                // load more indicator / button
+                // load more indicator
                 if (currentPage < totalPages && !isLoading) {
                     item {
                         LaunchedEffect(listState) {
                              snapshotFlow { listState.layoutInfo.visibleItemsInfo }
                                 .collect { visibleItems ->
                                     val lastVisibleItemIndex = visibleItems.lastOrNull()?.index ?: -1
-                                    // load more when near the end
+                                    // load more when near end
                                     if (visibleItems.isNotEmpty() && lastVisibleItemIndex >= results.size - 5) {
                                         onLoadMore()
                                     }
@@ -335,7 +340,7 @@ fun SearchResultsList(
                         }
                     }
                 } else if (isLoading && results.isNotEmpty()) {
-                     // show spinner when loading more pages
+                     // spinner when loading more
                      item {
                          Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.Center) {
                              CircularProgressIndicator()
@@ -353,7 +358,7 @@ fun TorrentResultItem(item: TorrentItem, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 8.dp) // more padding
+            .padding(vertical = 12.dp, horizontal = 8.dp) // padding
     ) {
         Text(
             text = item.name,
@@ -361,9 +366,9 @@ fun TorrentResultItem(item: TorrentItem, onClick: () -> Unit) {
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
-        Spacer(modifier = Modifier.height(6.dp)) // bigger spacer
+        Spacer(modifier = Modifier.height(6.dp)) // spacer
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 2.dp), // added padding above row
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp), // padding above row
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
@@ -389,13 +394,13 @@ fun TorrentResultItem(item: TorrentItem, onClick: () -> Unit) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        Spacer(modifier = Modifier.height(2.dp)) // tiny spacer after uploader
+        Spacer(modifier = Modifier.height(2.dp)) // spacer after uploader
     }
 }
 
 @Composable
 fun TorrentDetailsView(torrentInfo: TorrentInfo?, isLoading: Boolean) {
-    Box(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp)) { // add some padding
+    Box(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp)) { // padding
         when {
             isLoading -> {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -429,7 +434,7 @@ fun TorrentDetailsView(torrentInfo: TorrentInfo?, isLoading: Boolean) {
 @Composable
 fun DetailItem(label: String, value: String?, isCode: Boolean = false) {
     value?.let {
-        Row(modifier = Modifier.padding(vertical = 4.dp)) { // more vertical padding
+        Row(modifier = Modifier.padding(vertical = 4.dp)) { // vertical padding
             Text(
                 "$label: ",
                 style = MaterialTheme.typography.bodyMedium,
@@ -438,7 +443,7 @@ fun DetailItem(label: String, value: String?, isCode: Boolean = false) {
             Text(
                 it,
                 style = if (isCode) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodyMedium,
-                softWrap = true // allow wrapping for long stuff like magnet links
+                softWrap = true // wrap long stuff like magnet links
             )
         }
     }
@@ -469,7 +474,7 @@ fun ActionButtons(
     }
 }
 
-@Suppress("DEPRECATION") // Suppress Accompanist Webview warnings here
+@Suppress("DEPRECATION") // suppress accompanist webview warnings
 @Composable
 fun CloudflareChallengeDialog(
     webViewUrl: String,
@@ -492,7 +497,7 @@ fun CloudflareChallengeDialog(
                     .fillMaxWidth(0.95f)
                     .fillMaxHeight(0.8f),
                 shape = MaterialTheme.shapes.medium,
-                shadowElevation = 8.dp // lift the dialog up a bit
+                shadowElevation = 8.dp // lift dialog
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Cloudflare Challenge", style = MaterialTheme.typography.titleLarge)
@@ -536,7 +541,7 @@ fun CloudflareChallengeDialog(
 }
 
 
-// --- utility functions ---
+// utility functions
 
 fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -544,12 +549,12 @@ fun copyToClipboard(context: Context, text: String) {
     clipboard.setPrimaryClip(clip)
 }
 
-// updated magnet link func to use chooser
+// use chooser for magnet links
 fun openMagnetLink(context: Context, magnetLink: String) {
     Log.d(TAG, "attempting to open magnet link: $magnetLink")
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(magnetLink))
 
-    // see if any app can handle this link
+    // check if any app can handle it
     val resolvedActivity = intent.resolveActivity(context.packageManager)
     if (resolvedActivity == null) {
         Log.w(TAG, "no activity found by resolveactivity for magnet link.")
@@ -560,23 +565,23 @@ fun openMagnetLink(context: Context, magnetLink: String) {
     }
 
     try {
-        // make the chooser dialog
+        // create chooser dialog
         Log.d(TAG, "creating intent chooser.")
         val chooser = Intent.createChooser(intent, "open magnet link with...")
 
-        // check if chooser works (should always, but just in case)
+        // check if chooser works (should always)
         val chooserResolvedActivity = chooser.resolveActivity(context.packageManager)
         if (chooserResolvedActivity != null) {
             Log.i(TAG, "intent chooser resolved to: ${chooserResolvedActivity.flattenToString()}")
             Log.d(TAG, "starting intent chooser activity.")
             context.startActivity(chooser)
         } else {
-            // fallback if chooser fails (weird if it does)
+            // fallback if chooser fails (weird)
             Log.e(TAG, "intent chooser could not be resolved.")
             Toast.makeText(context, "could not show app chooser.", Toast.LENGTH_LONG).show()
         }
     } catch (e: Exception) {
-        // catch errors when making/starting chooser
+        // catch chooser errors
         Log.e(TAG, "error starting intent chooser for magnet link", e)
         Toast.makeText(context, "could not open magnet link: ${e.message}", Toast.LENGTH_LONG).show()
     }

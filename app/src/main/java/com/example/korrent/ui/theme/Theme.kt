@@ -15,49 +15,39 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Define the Dark Color Scheme using colors from Korrent1337x CSS
+// dark colors from korrent1337x css
 private val DarkColorScheme = darkColorScheme(
-    primary = DarkPrimary, // Button background
-    onPrimary = DarkOnPrimary, // Button text
-    background = DarkBackground, // Main background
-    onBackground = DarkOnBackground, // Main text
-    surface = DarkSurface, // Input/Card backgrounds
-    onSurface = DarkOnSurface, // Input/Card text
-    surfaceVariant = DarkSurface, // Use surface color for variants like dropdowns
-    onSurfaceVariant = DarkOnSurfaceVariant, // Text on variants (e.g., labels)
-    outline = DarkOutline, // Borders
-    // Define other colors as needed, potentially mapping secondary/tertiary if applicable
-    secondary = DarkPrimary, // Re-use primary for secondary elements for simplicity
+    primary = DarkPrimary, // button background
+    onPrimary = DarkOnPrimary, // button text
+    background = DarkBackground, // main background
+    onBackground = DarkOnBackground, // main text
+    surface = DarkSurface, // input/card backgrounds
+    onSurface = DarkOnSurface, // input/card text
+    surfaceVariant = DarkSurface, // use surface color for variants like dropdowns
+    onSurfaceVariant = DarkOnSurfaceVariant, // text on variants (e.g., labels)
+    outline = DarkOutline, // borders
+    // define others if needed, maybe map secondary/tertiary
+    secondary = DarkPrimary, // reuse primary for secondary for simplicity
     onSecondary = DarkOnPrimary,
-    tertiary = DarkPrimary, // Re-use primary for tertiary elements
+    tertiary = DarkPrimary, // reuse primary for tertiary
     onTertiary = DarkOnPrimary,
-    error = Pink80, // Keep default error colors for now
+    error = Pink80, // keep default error colors for now
     onError = Pink40
-    // Note: Disabled colors are handled by Compose components automatically based on alpha,
-    // but can be customized further in component themes if needed.
+    // note: disabled colors handled by compose alpha, can customize more if needed
 )
 
-// Define the Light Color Scheme using Material 3 baseline
+// light colors using material 3 baseline
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40, // Keep default light theme for now
+    primary = Purple40, // keep default light theme for now
     secondary = PurpleGrey40,
     tertiary = Pink40
 
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
 )
 
 @Composable
 fun KorrentTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
+    // dynamic color available on android 12+
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
@@ -74,14 +64,14 @@ fun KorrentTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb() // Or customize status bar color
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme // Use light icons on dark status bar
+            window.statusBarColor = colorScheme.primary.toArgb() // or customize status bar color
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme // use light icons on dark status bar
         }
     }
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography, // Assumes Typography.kt exists (standard Compose setup)
+        typography = Typography, // assumes typography.kt exists
         content = content
     )
 }

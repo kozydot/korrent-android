@@ -9,26 +9,23 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-// import androidx.compose.ui.tooling.preview.Preview // Preview no longer needed
 import com.example.korrent.ui.theme.KorrentTheme
-import com.example.korrent.ui.screen.search.SearchScreen // Import the main screen
+import com.example.korrent.ui.screen.search.SearchScreen // main screen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            KorrentTheme { // Apply the custom theme
-                // A surface container using the 'background' color from the theme
+            KorrentTheme { // apply custom theme
+                // surface container using the 'background' color
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Display the main SearchScreen composable
+                    // display main searchscreen
                     SearchScreen()
                 }
             }
         }
     }
 }
-
-// Removed placeholder Greeting and GreetingPreview

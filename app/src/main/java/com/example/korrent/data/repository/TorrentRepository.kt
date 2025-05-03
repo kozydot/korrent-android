@@ -4,10 +4,8 @@ import com.example.korrent.data.model.TorrentInfo
 import com.example.korrent.data.model.TorrentOrder
 import com.example.korrent.data.model.TorrentResult
 
-/**
- * Interface for accessing torrent data.
- * Abstracts the data source (remote API, local cache, etc.).
- */
+// interface for accessing torrent data
+// abstracts data source (api, cache, etc.)
 interface TorrentRepository {
 
     suspend fun searchTorrents(
@@ -23,5 +21,5 @@ interface TorrentRepository {
         link: String?
     ): Result<TorrentInfo>
 
-    // TODO: Add methods for trending, top, popular, browse if needed
+    // todo: add methods for trending, top, popular, browse if needed
 }
