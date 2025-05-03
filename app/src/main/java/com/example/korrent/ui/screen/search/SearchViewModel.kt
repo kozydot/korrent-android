@@ -13,6 +13,10 @@ import com.example.korrent.data.repository.TorrentRepositoryImpl // use concrete
 import com.example.korrent.data.remote.TorrentService // service to create impl
 import com.google.accompanist.web.WebViewState // for webview state
 import com.google.accompanist.web.rememberWebViewState // for webview state
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -22,7 +26,7 @@ data class SearchUiState(
     val category: String? = null,
     val sortBy: String? = null,
     val order: String = TorrentOrder.DESC,
-    val searchResults: List<TorrentItem> = emptyList(),
+    val searchResults: ImmutableList<TorrentItem> = persistentListOf(),
     val selectedTorrentInfo: TorrentInfo? = null,
     val isLoadingSearch: Boolean = false,
     val isLoadingDetails: Boolean = false,
@@ -103,7 +107,7 @@ class SearchViewModel(
             return
         }
 
-        _uiState.update { it.copy(isLoadingSearch = true, errorMessage = null, currentPage = page, searchResults = if (page == 1) emptyList() else it.searchResults) } // clear results only on page 1
+        _uiState.update { it.copy(isLoadingSearch = true, errorMessage = null, currentPage = page, searchResults = if (page == 1) persistentListOf() else it.searchResults) } // clear results only on page 1
 
         viewModelScope.launch {
             val result = repository.searchTorrents(
@@ -121,7 +125,13 @@ class SearchViewModel(
                         webViewUrl = null,
                         isLoadingSearch = false,
                         // add results if loading next page, else replace
-                        searchResults = if (page > 1) it.searchResults + torrentResult.items else torrentResult.items,
+                        // Add results if loading next page, else replace. Both are ImmutableList now.
+                        // torrentResult.items is already ImmutableList, no conversion needed.
+                        searchResults = (if (page > 1) { // Add parentheses for casting
+                            it.searchResults + torrentResult.items // '+' operator works for ImmutableList
+                        } else {
+                            torrentResult.items // Assign directly
+                        }) as ImmutableList<TorrentItem>, // Explicit cast
                         totalPages = torrentResult.pageCount
                     )
                 }

@@ -449,7 +449,8 @@ fun ActionButtons(
     onCopyMagnet: (String) -> Unit,
     onDownloadMagnet: (String) -> Unit
 ) {
-    val hasMagnet = !torrentInfo?.magnetLink.isNullOrBlank()
+    // Use derivedStateOf to avoid recomposing buttons if only other parts of torrentInfo change
+    val hasMagnet by remember { derivedStateOf { !torrentInfo?.magnetLink.isNullOrBlank() } }
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(

@@ -1,5 +1,6 @@
 package com.example.korrent.data.model
 
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.serialization.Serializable
 
 /**
@@ -25,7 +26,7 @@ data class TorrentItem(
  */
 @Serializable
 data class TorrentResult(
-    val items: List<TorrentItem>,
+    val items: ImmutableList<TorrentItem>,
     val currentPage: Int,
     val itemCount: Int,
     val pageCount: Int
@@ -43,11 +44,11 @@ data class TorrentInfo(
     val description: String? = null,
     val category: String? = null,
     val type: String? = null,
-    val genre: List<String>? = null,
+    val genre: ImmutableList<String>? = null,
     val language: String? = null,
     val size: String? = null,
     val thumbnail: String? = null,
-    val images: List<String>? = null,
+    val images: ImmutableList<String>? = null,
     val uploader: String? = null,
     val uploaderLink: String? = null, // renamed
     val downloads: String? = null,

@@ -13,6 +13,7 @@ import java.io.IOException // network/parsing errors
 import kotlinx.coroutines.Dispatchers // for switching context
 import kotlinx.coroutines.withContext // for switching context
 
+import kotlinx.collections.immutable.toImmutableList // Add this import
 class TorrentService {
 
     companion object {
@@ -64,13 +65,13 @@ class TorrentService {
         val sanitizedQuery = sanitizeQuery(query)
         val path = if (category != null && sortBy != null) {
             // category & sort
-            "/sort-category-search/${sanitizedQuery}/${category}/${sortBy.replaceFirstChar { it.uppercase() }}/${order.replaceFirstChar { it.uppercase() }}/${page}/"
+            "/sort-category-search/${sanitizedQuery}/${category}/${sortBy}/${order}/${page}/"
         } else if (category != null) {
             // only category
             "/category-search/${sanitizedQuery}/${category}/${page}/"
         } else if (sortBy != null) {
             // only sort
-            "/sort-search/${sanitizedQuery}/${sortBy.replaceFirstChar { it.uppercase() }}/${order.replaceFirstChar { it.uppercase() }}/${page}/"
+            "/sort-search/${sanitizedQuery}/${sortBy}/${order}/${page}/"
         } else {
             // basic
             "/search/${sanitizedQuery}/${page}/"
@@ -150,7 +151,7 @@ class TorrentService {
         }
 
         return TorrentResult(
-            items = items,
+            items = items.toImmutableList(), // Convert to ImmutableList
             currentPage = currentPage,
             itemCount = items.size, // use actual count
             pageCount = pageCount
