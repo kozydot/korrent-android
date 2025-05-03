@@ -41,6 +41,10 @@ class SearchViewModel(
     private val cloudflareBypass: CloudflareWebViewBypass = CloudflareWebViewBypass(KorrentApplication.appContext) // bypass helper
 ) : ViewModel() {
 
+    companion object {
+        private const val TAG = "SearchViewModel"
+    }
+
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
@@ -127,10 +131,12 @@ class SearchViewModel(
                  if (error.message?.contains("403") == true || error.message?.contains("timeout", ignoreCase = true) == true || error.message?.contains("cloudflare", ignoreCase = true) == true) {
                      // start bypass
                      viewModelScope.launch {
-                         if (!cloudflareBypass.prepareClearance(repository.buildSearchUrl(currentState.searchQuery, page, currentState.category, currentState.sortBy, currentState.order))) {
-                             // prepareclearance failed, challenge needed
-                             // stateflow updates ui via collector
-                             _uiState.update { it.copy(isLoadingSearch = true) } // keep loading
+                         // Use the actual repository method to get the URL
+                         val searchUrl = repository.buildSearchUrl(currentState.searchQuery, page, currentState.category, currentState.sortBy, currentState.order)
+                         if (!cloudflareBypass.prepareClearance(searchUrl)) {
+                             // prepareClearance returned false, challenge needed
+                             // stateflow will update ui via the init collector
+                             _uiState.update { it.copy(isLoadingSearch = true) } // keep loading spinner
                          } else {
                               // cached clearance worked, retry now
                               performSearch(page)
@@ -153,45 +159,45 @@ class SearchViewModel(
         if (torrentItem == null) {
              _uiState.update { it.copy(selectedTorrentInfo = null) }
              return
-         }
- 
-         _uiState.update { it.copy(isLoadingDetails = true, errorMessage = null, selectedTorrentInfo = null) } // clear old details
- 
-         viewModelScope.launch {
-             // use torrentid mainly, fallback to link (id better)
-             // build info url for bypass if needed
-             val infoUrl = repository.buildInfoUrl(torrentId = torrentItem.torrentId, link = null) // assuming repo builds url
-             val result = repository.getTorrentInfo(torrentId = torrentItem.torrentId, link = null)
- 
-             result.onSuccess { info ->
-                 _uiState.update {
-                     it.copy(
-                         // reset bypass state
-                         bypassState = BypassState.Idle,
-                         webViewUrl = null,
-                         isLoadingDetails = false,
-                         selectedTorrentInfo = info
-                     )
-                 }
-             }.onFailure { error ->
-                  // check if cloudflare error
-                  if (error.message?.contains("403") == true || error.message?.contains("timeout", ignoreCase = true) == true || error.message?.contains("cloudflare", ignoreCase = true) == true) {
-                      // start bypass
-                      viewModelScope.launch {
-                          if (!cloudflareBypass.prepareClearance(infoUrl)) {
-                              // stateflow updates ui via collector
-                              _uiState.update { it.copy(isLoadingDetails = true) } // keep loading
-                          } else {
-                              // cached clearance worked, retry now
-                              fetchTorrentDetails(torrentItem)
-                          }
-                      }
-                  } else {
-                     _uiState.update {
-                         it.copy(
-                             isLoadingDetails = false,
-                             errorMessage = "failed to load details: ${error.message}"
-                         )
+        }
+
+        _uiState.update { it.copy(isLoadingDetails = true, errorMessage = null, selectedTorrentInfo = null) } // clear old details
+
+        viewModelScope.launch {
+            // use torrentid mainly, fallback to link if needed (id is better)
+            // Use the actual repository method to get the URL
+            val infoUrl = repository.buildInfoUrl(torrentId = torrentItem.torrentId, link = null)
+            val result = repository.getTorrentInfo(torrentId = torrentItem.torrentId, link = null)
+
+            result.onSuccess { info ->
+                _uiState.update {
+                    it.copy(
+                        // reset bypass state on success
+                        bypassState = BypassState.Idle,
+                        webViewUrl = null,
+                        isLoadingDetails = false,
+                        selectedTorrentInfo = info
+                    )
+                }
+            }.onFailure { error ->
+                 // check if it failed 'cause of cloudflare
+                 if (error.message?.contains("403") == true || error.message?.contains("timeout", ignoreCase = true) == true || error.message?.contains("cloudflare", ignoreCase = true) == true) {
+                     // start bypass process
+                     viewModelScope.launch {
+                         if (!cloudflareBypass.prepareClearance(infoUrl)) {
+                             // stateflow will update ui via the init collector
+                             _uiState.update { it.copy(isLoadingDetails = true) } // keep loading spinner
+                         } else {
+                             // cached clearance worked, retry right away
+                             fetchTorrentDetails(torrentItem)
+                         }
+                     }
+                 } else {
+                    _uiState.update {
+                        it.copy(
+                            isLoadingDetails = false,
+                            errorMessage = "failed to load details: ${error.message}"
+                        )
                     }
                  }
             }
@@ -223,17 +229,5 @@ class SearchViewModel(
         return rememberWebViewState(url = url)
     }
 
-    // todo: expose url building from repo or duplicate here if bypass needs it
-    // temp workaround: assume repo exposes it
-    // suppress unused param warnings for placeholders
-    @Suppress("UNUSED_PARAMETER")
-    private fun TorrentRepository.buildSearchUrl(query: String, page: Int, category: String?, sortBy: String?, order: String): String {
-        // todo: implement/call real url building
-        return "https://1337x.to/search/$query/$page/"
-    }
-    @Suppress("UNUSED_PARAMETER")
-     private fun TorrentRepository.buildInfoUrl(torrentId: String?, link: String?): String {
-        // todo: implement/call real url building
-        return "https://1337x.to/torrent/$torrentId/placeholder/"
-    }
+    // Removed placeholder extension functions as repository now provides these.
 }

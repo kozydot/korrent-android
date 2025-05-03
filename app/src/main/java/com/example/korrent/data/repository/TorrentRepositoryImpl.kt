@@ -29,5 +29,22 @@ class TorrentRepositoryImpl(
         return torrentService.getInfo(torrentId, link)
     }
 
-    // todo: implement other repo methods via service calls
+    // --- URL Building Implementation ---
+    override fun buildSearchUrl(
+        query: String,
+        page: Int,
+        category: String?,
+        sortBy: String?,
+        order: String
+    ): String {
+        // Delegate to the service's internal method
+        return torrentService.buildSearchUrl(query, page, category, sortBy, order)
+    }
+
+    override fun buildInfoUrl(torrentId: String?, link: String?): String {
+        // Delegate to the service's internal method
+        return torrentService.buildInfoUrl(torrentId, link)
+    }
+
+    // todo: implement other repo methods by calling corresponding service methods
 }
