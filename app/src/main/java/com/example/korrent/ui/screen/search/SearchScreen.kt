@@ -8,12 +8,14 @@ import android.net.Uri
 import android.widget.Toast
 import android.content.ActivityNotFoundException
 import android.util.Log // for logging
+import androidx.activity.compose.BackHandler // Import BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
+import androidx.compose.material3.rememberModalBottomSheetState // Import for Bottom Sheet
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -63,7 +65,7 @@ private val orderOptions = mapOf(
 )
 
 
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class) // Added ExperimentalMaterial3Api
 @Suppress("DEPRECATION") // suppress accompanist webview warnings
 @Composable
 fun SearchScreen(
@@ -73,6 +75,8 @@ fun SearchScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true) // Bottom sheet state
+    var showFilterSheet by remember { mutableStateOf(false) } // State to control sheet visibility
 
     // webview state
     val webViewState = uiState.webViewUrl?.let { url ->
@@ -99,6 +103,29 @@ fun SearchScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
 
+        // Filter Bottom Sheet
+        if (showFilterSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showFilterSheet = false },
+                sheetState = sheetState
+            ) {
+                // Content of the bottom sheet
+                FilterBottomSheetContent(
+                    initialCategory = uiState.category,
+                    initialSortBy = uiState.sortBy,
+                    initialOrder = uiState.order,
+                    onApplyFilters = { category, sortBy, order ->
+                        viewModel.onCategoryChanged(category)
+                        viewModel.onSortByChanged(sortBy)
+                        viewModel.onOrderChanged(order)
+                        viewModel.performSearch(page = 1) // Trigger search with new filters
+                        showFilterSheet = false
+                    },
+                    onDismiss = { showFilterSheet = false }
+                )
+            }
+        }
+
         // cloudflare challenge dialog
         if (uiState.bypassState is BypassState.ChallengeRequired && webViewState != null) {
             CloudflareChallengeDialog(
@@ -115,149 +142,94 @@ fun SearchScreen(
                 .padding(paddingValues) // scaffold padding
                 .padding(horizontal = 16.dp, vertical = 8.dp) // content padding
         ) {
-            // search bar
-            Box(modifier = Modifier.padding(bottom = 8.dp)) {
-                SearchInputSection(
-                    query = uiState.searchQuery,
-                    onQueryChange = viewModel::onSearchQueryChanged,
-                    onSearchClick = {
-                        keyboardController?.hide()
-                        viewModel.performSearch(page = 1)
+            // Search Bar and Filter Button Row
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), // Combined padding
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Re-integrate SearchInputSection logic here for clarity
+                var textFieldValue by remember { mutableStateOf(TextFieldValue(uiState.searchQuery)) }
+                LaunchedEffect(uiState.searchQuery) { // update text field if query changes externally
+                    if (textFieldValue.text != uiState.searchQuery) {
+                        textFieldValue = textFieldValue.copy(text = uiState.searchQuery)
                     }
-                )
-            }
-
-            // filter/sort row
-            Box(modifier = Modifier.padding(bottom = 16.dp)) {
-                OptionsRow(
-                    selectedCategory = uiState.category,
-                    selectedSortBy = uiState.sortBy,
-                    selectedOrder = uiState.order,
-                    onCategoryChange = viewModel::onCategoryChanged,
-                    onSortByChange = viewModel::onSortByChanged,
-                    onOrderChange = viewModel::onOrderChanged
-                )
-            }
-
-            // results list & details view
-            Row(modifier = Modifier.weight(1f).padding(bottom = 16.dp)) {
-                // results list (left)
-                Surface(modifier = Modifier.weight(1f), shadowElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
-                    SearchResultsList(
-                        results = uiState.searchResults,
-                        isLoading = uiState.isLoadingSearch && uiState.currentPage == 1,
-                        onItemSelected = viewModel::fetchTorrentDetails,
-                        onLoadMore = {
-                            if (!uiState.isLoadingSearch && uiState.currentPage < uiState.totalPages) {
-                                viewModel.performSearch(page = uiState.currentPage + 1)
-                            }
-                        },
-                        currentPage = uiState.currentPage,
-                        totalPages = uiState.totalPages
-                    )
                 }
 
-                Spacer(modifier = Modifier.width(16.dp))
-
-                // details view (right)
-                Surface(modifier = Modifier.weight(2f), shadowElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
-                    TorrentDetailsView(
-                        torrentInfo = uiState.selectedTorrentInfo,
-                        isLoading = uiState.isLoadingDetails
-                    )
-                }
-            }
-
-            // action buttons
-            Box(modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)) { // center buttons
-                ActionButtons(
-                    torrentInfo = uiState.selectedTorrentInfo,
-                    onCopyMagnet = { magnet ->
-                        copyToClipboard(context, magnet)
-                        viewModel.showSnackbar("Magnet link copied!")
+                OutlinedTextField(
+                    value = textFieldValue,
+                    onValueChange = {
+                        textFieldValue = it
+                        viewModel.onSearchQueryChanged(it.text) // Use ViewModel directly
                     },
-                    onDownloadMagnet = { magnet ->
-                        openMagnetLink(context, magnet)
-                    }
+                    label = { Text("Search Query") },
+                    modifier = Modifier.weight(1f), // Takes available space
+                    singleLine = true
                 )
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(onClick = {
+                    keyboardController?.hide()
+                    viewModel.performSearch(page = 1)
+                }) {
+                    Text("Search")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                // Re-integrate OptionsRow logic here
+                Button(onClick = { showFilterSheet = true }) {
+                    Text("Filters")
+                }
             }
+
+            // Conditionally display List or Details (Single Pane)
+            Box(modifier = Modifier.weight(1f).padding(bottom = 8.dp)) { // Reduced bottom padding
+// TODO: Implement screen size detection (e.g., using BoxWithConstraints or WindowSizeClass)
+                //       to conditionally apply this single-pane logic only on phones/portrait.
+                //       The current implementation replaces the two-pane layout entirely.
+                if (uiState.selectedTorrentInfo == null) {
+                    // Show Search Results List
+                    Surface(modifier = Modifier.fillMaxSize(), shadowElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
+                        SearchResultsList(
+                            results = uiState.searchResults,
+                            isLoading = uiState.isLoadingSearch && uiState.currentPage == 1,
+                            onItemSelected = viewModel::fetchTorrentDetails, // Selecting item will trigger detail view
+                            onLoadMore = {
+                                if (!uiState.isLoadingSearch && uiState.currentPage < uiState.totalPages) {
+                                    viewModel.performSearch(page = uiState.currentPage + 1)
+                                }
+                            },
+                            currentPage = uiState.currentPage,
+                            totalPages = uiState.totalPages
+                        )
+                    }
+                } else {
+                    // Show Torrent Details View
+                    // Add BackHandler to intercept back press when details are shown
+                    BackHandler(enabled = uiState.selectedTorrentInfo != null) {
+                        viewModel.clearSelectedTorrent() // Clear selection to go back to list
+                    }
+                    Surface(modifier = Modifier.fillMaxSize(), shadowElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
+                        TorrentDetailsView(
+                            torrentInfo = uiState.selectedTorrentInfo,
+                            isLoading = uiState.isLoadingDetails,
+                            onCopyMagnet = { magnet ->
+                                copyToClipboard(context, magnet)
+                                viewModel.showSnackbar("Magnet link copied!")
+                            },
+                            onDownloadMagnet = { magnet ->
+                                openMagnetLink(context, magnet)
+                            }
+                            // Back navigation is now handled by the BackHandler above
+                        )
+                    }
+                }
+            }
+            // Action buttons are now moved inside TorrentDetailsView
         }
     }
 }
 
 // helper composables
 
-@Composable
-fun SearchInputSection(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onSearchClick: () -> Unit
-) {
-    var textFieldValue by remember { mutableStateOf(TextFieldValue(query)) }
-    LaunchedEffect(query) { // update text field if query changes externally
-        if (textFieldValue.text != query) {
-            textFieldValue = textFieldValue.copy(text = query)
-        }
-    }
-
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(
-            value = textFieldValue,
-            onValueChange = {
-                textFieldValue = it
-                onQueryChange(it.text)
-            },
-            label = { Text("Search Query") },
-            modifier = Modifier.weight(1f),
-            singleLine = true
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Button(onClick = onSearchClick) {
-            Text("Search")
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class) // for flowrow
-@Composable
-fun OptionsRow(
-    selectedCategory: String?,
-    selectedSortBy: String?,
-    selectedOrder: String,
-    onCategoryChange: (String?) -> Unit,
-    onSortByChange: (String?) -> Unit,
-    onOrderChange: (String) -> Unit
-) {
-    FlowRow(
-        verticalArrangement = Arrangement.Center,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        DropdownSelector(
-            label = "Category",
-            options = categoryOptions,
-            selectedValue = selectedCategory,
-            onValueSelected = onCategoryChange,
-            modifier = Modifier.weight(1f)
-        )
-
-        DropdownSelector(
-            label = "Sort By",
-            options = sortOptions,
-            selectedValue = selectedSortBy,
-            onValueSelected = onSortByChange,
-            modifier = Modifier.weight(1f)
-        )
-
-        DropdownSelector(
-            label = "Order",
-            options = orderOptions,
-            selectedValue = selectedOrder,
-            onValueSelected = { value -> onOrderChange(value!!) }, // must be non-null
-            modifier = Modifier.weight(1f, fill = false).widthIn(min = 120.dp)
-        )
-    }
-}
+// SearchInputSection and OptionsRow removed as their logic is integrated above
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -399,10 +371,17 @@ fun TorrentResultItem(item: TorrentItem, onClick: () -> Unit) {
 }
 
 @Composable
-fun TorrentDetailsView(torrentInfo: TorrentInfo?, isLoading: Boolean) {
-    Box(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp)) { // padding
-        when {
-            isLoading -> {
+fun TorrentDetailsView(
+    torrentInfo: TorrentInfo?,
+    isLoading: Boolean,
+    onCopyMagnet: (String) -> Unit, // Added callbacks
+    onDownloadMagnet: (String) -> Unit // Added callbacks
+) {
+    // Use Column to place content and buttons
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp)) {
+        Box(modifier = Modifier.weight(1f)) { // Box to contain the scrollable details or loading/empty state
+            when {
+                isLoading -> {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
             torrentInfo != null -> {
@@ -422,12 +401,26 @@ fun TorrentDetailsView(torrentInfo: TorrentInfo?, isLoading: Boolean) {
                     item { Spacer(modifier = Modifier.height(8.dp)) }
                     item { DetailItem("Magnet", torrentInfo.magnetLink, isCode = true) }
                     item { DetailItem("InfoHash", torrentInfo.infoHash, isCode = true) }
+                    // Add extra space at the bottom of the list inside the weighted Box
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
                 }
             }
             else -> {
-                Text("Select a result to view details.", modifier = Modifier.align(Alignment.Center))
+                 // This case should ideally not be reached if TorrentDetailsView is only shown when torrentInfo is not null
+                 // But keep it for robustness
+                Text("Loading details...", modifier = Modifier.align(Alignment.Center))
             }
-        }
+            } // <<<<< ADDED: Closing brace for the 'when' statement
+        } // End of weighted Box
+
+        // Action buttons at the bottom of the Column
+        Spacer(modifier = Modifier.height(8.dp))
+        ActionButtons(
+            torrentInfo = torrentInfo,
+            onCopyMagnet = onCopyMagnet,
+            onDownloadMagnet = onDownloadMagnet
+        ) // Added missing closing parenthesis
+        Spacer(modifier = Modifier.height(8.dp)) // Padding at the very bottom
     }
 }
 
@@ -584,5 +577,68 @@ fun openMagnetLink(context: Context, magnetLink: String) {
         // catch chooser errors
         Log.e(TAG, "error starting intent chooser for magnet link", e)
         Toast.makeText(context, "could not open magnet link: ${e.message}", Toast.LENGTH_LONG).show()
+    }
+}
+// Composable for the content inside the Filter Bottom Sheet
+@Composable
+fun FilterBottomSheetContent(
+    initialCategory: String?,
+    initialSortBy: String?,
+    initialOrder: String,
+    onApplyFilters: (category: String?, sortBy: String?, order: String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selectedCategory by remember { mutableStateOf(initialCategory) }
+    var selectedSortBy by remember { mutableStateOf(initialSortBy) }
+    var selectedOrder by remember { mutableStateOf(initialOrder) }
+
+    Column(
+        modifier = Modifier
+            .padding(16.dp)
+            .fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally // Center children horizontally
+    ) {
+        Text("Filters & Sorting", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 16.dp))
+
+        DropdownSelector(
+            label = "Category",
+            options = categoryOptions,
+            selectedValue = selectedCategory,
+            onValueSelected = { selectedCategory = it },
+            modifier = Modifier.padding(bottom = 8.dp) // Removed fillMaxWidth
+        )
+
+        DropdownSelector(
+            label = "Sort By",
+            options = sortOptions,
+            selectedValue = selectedSortBy,
+            onValueSelected = { selectedSortBy = it },
+            modifier = Modifier.padding(bottom = 8.dp) // Removed fillMaxWidth
+        )
+
+        DropdownSelector(
+            label = "Order",
+            options = orderOptions,
+            selectedValue = selectedOrder,
+            onValueSelected = { selectedOrder = it ?: TorrentOrder.DESC }, // Default to DESC if null somehow
+            modifier = Modifier.padding(bottom = 16.dp) // Removed fillMaxWidth
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(onClick = {
+                onApplyFilters(selectedCategory, selectedSortBy, selectedOrder)
+            }) {
+                Text("Apply")
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp)) // Padding at the bottom
     }
 }

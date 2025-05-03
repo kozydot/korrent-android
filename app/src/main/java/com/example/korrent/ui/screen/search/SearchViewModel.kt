@@ -204,6 +204,10 @@ class SearchViewModel(
         }
     }
 
+    fun clearSelectedTorrent() {
+        _uiState.update { it.copy(selectedTorrentInfo = null, isLoadingDetails = false) } // Also clear loading state
+    }
+
      fun showSnackbar(message: String) {
         _uiState.update { it.copy(snackbarMessage = message) }
     }
