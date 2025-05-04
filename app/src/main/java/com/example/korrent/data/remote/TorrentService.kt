@@ -1,6 +1,5 @@
 package com.example.korrent.data.remote
 
-import android.net.Uri
 import android.util.Log
 import com.example.korrent.data.model.* // data models
 import io.ktor.client.call.*
@@ -8,7 +7,6 @@ import io.ktor.client.request.*
 import io.ktor.http.*
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
 import java.io.IOException // network/parsing errors
 import kotlinx.coroutines.Dispatchers // for switching context
 import kotlinx.coroutines.withContext // for switching context
@@ -23,7 +21,7 @@ class TorrentService {
         private const val SELECTOR_SEARCH_TABLE_ROWS = "table.table-list tbody tr"
         private const val SELECTOR_SEARCH_NAME_LINK = "td.name a:nth-child(2)"
         private const val SELECTOR_SEARCH_SEEDERS = "td.seeds"
-        private const val SELECTOR_SEARCH_LEECHERS = "td.leeches"
+        private const val SELECTOR_SEARCH_LEECHES = "td.leeches"
         private const val SELECTOR_SEARCH_SIZE = "td.size"
         private const val SELECTOR_SEARCH_TIME = "td.time"
         private const val SELECTOR_SEARCH_UPLOADER_LINK = "td.coll-5 a"
@@ -41,7 +39,7 @@ class TorrentService {
         private const val SELECTOR_INFO_LAST_CHECKED = "li:has(strong:contains(last checked)) > span"
         private const val SELECTOR_INFO_DATE_UPLOADED = "li:has(strong:contains(date uploaded)) > span"
         private const val SELECTOR_INFO_SEEDERS = "li span.seeds"
-        private const val SELECTOR_INFO_LEECHERS = "li span.leeches"
+        private const val SELECTOR_INFO_LEECHES = "li span.leeches"
         private const val SELECTOR_INFO_MAGNET_LINK = "div.torrent-detail-page a[href^=magnet:]"
         private const val SELECTOR_INFO_DESCRIPTION = "div#description"
     }
@@ -80,16 +78,16 @@ class TorrentService {
     }
 
      internal fun buildInfoUrl(torrentId: String?, link: String?): String { // Make internal
-        if (torrentId != null) {
+        return if (torrentId != null) {
             // construct url from id (assuming format)
             // todo: verify exact format from py1337x/website
             // placeholder: /torrent/id/name/
-            return "$baseUrl/torrent/$torrentId/placeholder/" // placeholder
+            "$baseUrl/torrent/$torrentId/placeholder/" // placeholder
         } else if (link != null) {
             // use provided link (make absolute if needed)
-            return if (link.startsWith("http")) link else baseUrl + link
+            if (link.startsWith("http")) link else baseUrl + link
         } else {
-            throw IllegalArgumentException("need torrentid or link")
+            throw IllegalArgumentException("need torrentId or link")
         }
     }
 
@@ -108,7 +106,7 @@ class TorrentService {
             for (row in tableRows) {
                 val nameElement = row.selectFirst(SELECTOR_SEARCH_NAME_LINK)
                 val seedersElement = row.selectFirst(SELECTOR_SEARCH_SEEDERS)
-                val leechersElement = row.selectFirst(SELECTOR_SEARCH_LEECHERS)
+                val leechersElement = row.selectFirst(SELECTOR_SEARCH_LEECHES)
                 val sizeElement = row.selectFirst(SELECTOR_SEARCH_SIZE)
                 val timeElement = row.selectFirst(SELECTOR_SEARCH_TIME)
                 val uploaderElement = row.selectFirst(SELECTOR_SEARCH_UPLOADER_LINK)
@@ -117,7 +115,7 @@ class TorrentService {
                 val url = nameElement?.attr("href") ?: ""
                 val torrentId = url.split("/").getOrNull(2) ?: "" // extract id (fragile)
                 val seeders = seedersElement?.text() ?: "0"
-                val leechers = leechersElement?.text() ?: "0"
+                val leeches = leechersElement?.text() ?: "0"
                 // remove hidden span text in size
                 val size = sizeElement?.ownText() ?: "n/a"
                 val time = timeElement?.text() ?: "n/a"
@@ -131,7 +129,7 @@ class TorrentService {
                             torrentId = torrentId,
                             url = baseUrl + url, // make absolute
                             seeders = seeders,
-                            leechers = leechers,
+                            leechers = leeches,
                             size = size,
                             time = time,
                             uploader = uploader,
@@ -175,7 +173,7 @@ class TorrentService {
             val lastChecked = detailList?.select(SELECTOR_INFO_LAST_CHECKED)?.first()?.text()
             val dateUploaded = detailList?.select(SELECTOR_INFO_DATE_UPLOADED)?.first()?.text()
             val seeders = detailList?.select(SELECTOR_INFO_SEEDERS)?.first()?.text()
-            val leechers = detailList?.select(SELECTOR_INFO_LEECHERS)?.first()?.text()
+            val leeches = detailList?.select(SELECTOR_INFO_LEECHES)?.first()?.text()
 
             val magnetLink = document.selectFirst(SELECTOR_INFO_MAGNET_LINK)?.attr("href")
             val infoHash = magnetLink?.substringAfter("urn:btih:", "")?.substringBefore('&')
@@ -198,7 +196,7 @@ class TorrentService {
                 lastChecked = lastChecked,
                 dateUploaded = dateUploaded,
                 seeders = seeders,
-                leechers = leechers,
+                leechers = leeches,
                 magnetLink = magnetLink,
                 infoHash = infoHash,
                 description = description
